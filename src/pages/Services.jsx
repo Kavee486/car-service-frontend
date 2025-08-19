@@ -1,26 +1,57 @@
-import React, { useState } from 'react';
-import { 
-  Table, Button, Modal, Form, Input, InputNumber, 
-  Card, Space, Typography, Tag, message, Radio 
-} from 'antd';
-import { 
-  PlusOutlined, DeleteOutlined, EditOutlined
-} from '@ant-design/icons';
+import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  getServices,
+  createService,
+  updateService,
+  deleteService,
+} from "../actions/ServicesAction";
+import {
+  Table,
+  Button,
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Card,
+  Space,
+  Typography,
+  Tag,
+  message,
+} from "antd";
+import {
+  PlusOutlined,
+  DeleteOutlined,
+  EditOutlined,
+} from "@ant-design/icons";
 
 const { Title, Text } = Typography;
 
 const Services = () => {
-  // Sample initial data with Rs currency
-  const initialServices = [
-    { id: 1, name: 'Oil Change', description: 'Standard oil and filter change', baseCharge: 3499, status: 'Active' },
-    { id: 2, name: 'Tire Rotation', description: 'Rotate all four tires', baseCharge: 1999, status: 'Active' },
-    { id: 3, name: 'Brake Inspection', description: 'Complete brake system inspection', baseCharge: 2799, status: 'Inactive' },
-  ];
-
-  const [services, setServices] = useState(initialServices);
+  const dispatch = useDispatch();
+  const { services, loading, error, success } = useSelector(
+    (state) => state.services
+  );
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [currentService, setCurrentService] = useState(null);
   const [form] = Form.useForm();
+
+  useEffect(() => {
+    dispatch(getServices());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (error) {
+      message.error(error);
+    }
+    if (success) {
+      message.success(
+        currentService 
+          ? "Service updated successfully" 
+          : "Service created successfully"
+      );
+    }
+  }, [error, success, currentService]);
 
   const handleAddService = () => {
     setCurrentService(null);
@@ -31,122 +62,96 @@ const Services = () => {
   const handleEditService = (service) => {
     setCurrentService(service);
     form.setFieldsValue({
-      name: service.name,
-      description: service.description,
-      baseCharge: service.baseCharge,
-      status: service.status
+      S_ServiceName: service.S_ServiceName,
+      S_Description: service.S_Description,
+      S_BaseCharge: parseFloat(service.S_BaseCharge),
     });
     setIsModalVisible(true);
   };
 
   const handleDeleteService = (id) => {
     Modal.confirm({
-      title: <span className="text-lg">Delete Service</span>,
-      content: <span className="text-base">Are you sure you want to delete this service?</span>,
-      okText: 'Delete',
-      okType: 'danger',
-      cancelText: 'Cancel',
+      title: "Delete Service",
+      content: "Are you sure you want to delete this service?",
+      okText: "Delete",
+      okType: "danger",
+      cancelText: "Cancel",
       onOk: () => {
-        setServices(services.filter(service => service.id !== id));
-        message.success('Service deleted successfully');
-      }
+        dispatch(deleteService(id))
+          .then(() => message.success("Service deleted successfully"))
+          .catch(() => message.error("Failed to delete service"));
+      },
     });
   };
 
   const handleSubmit = () => {
-    form.validateFields().then(values => {
+    form.validateFields().then((values) => {
+      const serviceData = {
+        ...values,
+        S_BaseCharge: values.S_BaseCharge.toString(),
+      };
+
       if (currentService) {
-        // Update existing service
-        setServices(services.map(service => 
-          service.id === currentService.id ? 
-          { 
-            ...service, 
-            ...values,
-            baseCharge: parseFloat(values.baseCharge)
-          } : 
-          service
-        ));
-        message.success('Service updated successfully');
+        serviceData.S_ServiceID = currentService.S_ServiceID;
+        dispatch(updateService(serviceData));
       } else {
-        // Add new service
-        const newService = {
-          id: services.length > 0 ? Math.max(...services.map(s => s.id)) + 1 : 1,
-          ...values,
-          baseCharge: parseFloat(values.baseCharge)
-        };
-        setServices([...services, newService]);
-        message.success('Service added successfully');
+        dispatch(createService(serviceData));
       }
       setIsModalVisible(false);
-    }).catch(err => {
-      console.error('Validation failed:', err);
     });
   };
 
-  // Format currency as Rs
   const formatCurrency = (value) => {
-    return `Rs${value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+    return `Rs${parseFloat(value).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
   };
 
   const columns = [
     {
-      title: <span className="text-base font-medium">Service Name</span>,
-      dataIndex: 'name',
-      key: 'name',
-      sorter: (a, b) => a.name.localeCompare(b.name),
-      render: (text) => <Text strong className="text-base">{text}</Text>,
+      title: "Service Name",
+      dataIndex: "S_ServiceName",
+      key: "S_ServiceName",
+      render: (text) => <Text strong>{text}</Text>,
     },
     {
-      title: <span className="text-base font-medium">Description</span>,
-      dataIndex: 'description',
-      key: 'description',
-      render: (text) => <Text type="secondary" className="text-base">{text}</Text>,
+      title: "Description",
+      dataIndex: "S_Description",
+      key: "S_Description",
+      render: (text) => <Text type="secondary">{text}</Text>,
     },
     {
-      title: <span className="text-base font-medium">Base Charge</span>,
-      dataIndex: 'baseCharge',
-      key: 'baseCharge',
-      width: 160,
+      title: "Base Charge",
+      dataIndex: "S_BaseCharge",
+      key: "S_BaseCharge",
       render: (price) => (
-        <Text strong className="text-blue-600 text-base">
+        <Text strong className="text-blue-600">
           {formatCurrency(price)}
         </Text>
       ),
-      sorter: (a, b) => a.baseCharge - b.baseCharge,
     },
     {
-      title: <span className="text-base font-medium">Status</span>,
-      dataIndex: 'status',
-      key: 'status',
-      width: 140,
+      title: "Status",
+      dataIndex: "Status",
+      key: "Status",
       render: (status) => (
-        <Tag color={status === 'Active' ? 'green' : 'red'} className="capitalize text-base">
-          {status}
+        <Tag color={status === "A" ? "green" : "red"} className="capitalize">
+          {status === "A" ? "Active" : "Inactive"}
         </Tag>
       ),
-      filters: [
-        { text: 'Active', value: 'Active' },
-        { text: 'Inactive', value: 'Inactive' },
-      ],
-      onFilter: (value, record) => record.status === value,
     },
     {
-      title: <span className="text-base font-medium">Actions</span>,
-      key: 'actions',
-      width: 140,
+      title: "Actions",
+      key: "actions",
       render: (_, record) => (
         <Space size="small">
-          <Button 
-            type="text" 
-            icon={<EditOutlined className="text-blue-500 text-lg" />} 
+          <Button
+            type="text"
+            icon={<EditOutlined className="text-blue-500" />}
             onClick={() => handleEditService(record)}
-            className="hover:bg-blue-50"
           />
-          <Button 
-            type="text" 
-            icon={<DeleteOutlined className="text-red-500 text-lg" />} 
-            onClick={() => handleDeleteService(record.id)}
-            className="hover:bg-red-50"
+          <Button
+            type="text"
+            icon={<DeleteOutlined className="text-red-500" />}
+            onClick={() => handleDeleteService(record.S_ServiceID)}
           />
         </Space>
       ),
@@ -154,19 +159,20 @@ const Services = () => {
   ];
 
   return (
-    <div className="space-y-6 p-6">
-      <Card bordered={false} className="shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="p-6">
+      <Card bordered={false} className="shadow-sm mb-6">
+        <div className="flex justify-between items-center">
           <div>
-            <Title level={3} className="mb-2">Services Management</Title>
-            <Text type="secondary" className="text-base">Manage your auto repair services</Text>
+            <Title level={3} className="mb-1">
+              Services Management
+            </Title>
+            <Text type="secondary">Manage your auto repair services</Text>
           </div>
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined className="text-lg" />} 
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
             onClick={handleAddService}
-            className="bg-blue-600 hover:bg-blue-700 text-base"
-            size="large"
+            loading={loading}
           >
             Add Service
           </Button>
@@ -174,112 +180,58 @@ const Services = () => {
       </Card>
 
       <Card bordered={false} className="shadow-sm">
-        <Table 
-          columns={columns} 
-          dataSource={services} 
-          rowKey="id"
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            pageSizeOptions: ['10', '20', '50'],
-            showTotal: (total) => <span className="text-base">Total {total} services</span>
-          }}
-          scroll={{ x: true }}
-          className="rounded-lg text-base"
+        <Table
+          columns={columns}
+          dataSource={services}
+          rowKey="S_ServiceID"
+          loading={loading}
+          pagination={{ pageSize: 10 }}
         />
       </Card>
 
       <Modal
-        title={<span className="text-xl font-semibold">
-          {currentService ? 'Edit Service' : 'Add New Service'}
-        </span>}
-        open={isModalVisible}
+        title={currentService ? "Edit Service" : "Add New Service"}
+        visible={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={null}
-        destroyOnClose
-        width={700}
-        centered
-        className="rounded-lg"
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          initialValues={{
-            status: 'Active'
-          }}
-          className="text-base"
-        >
-          <div className="grid grid-cols-1 gap-6">
-            <Form.Item
-              name="name"
-              label={<span className="font-medium text-base">Service Name</span>}
-              rules={[{ required: true, message: 'Please input the service name!' }]}
-            >
-              <Input placeholder="Enter service name" size="large" className="text-base" />
-            </Form.Item>
+        <Form form={form} layout="vertical" onFinish={handleSubmit}>
+          <Form.Item
+            name="S_ServiceName"
+            label="Service Name"
+            rules={[{ required: true, message: "Please input service name!" }]}
+          >
+            <Input placeholder="Oil Change" />
+          </Form.Item>
 
-            <Form.Item
-              name="description"
-              label={<span className="font-medium text-base">Description</span>}
-              rules={[{ required: true, message: 'Please input the description!' }]}
-            >
-              <Input.TextArea 
-                placeholder="Enter service description" 
-                rows={3} 
-                size="large" 
-                className="text-base"
-              />
-            </Form.Item>
+          <Form.Item
+            name="S_Description"
+            label="Description"
+            rules={[{ required: true, message: "Please input description!" }]}
+          >
+            <Input.TextArea rows={3} placeholder="Service description" />
+          </Form.Item>
 
-            <Form.Item
-              name="baseCharge"
-              label={<span className="font-medium text-base">Base Charge (Rs)</span>}
-              rules={[{ 
-                required: true, 
-                message: 'Please input the base charge!',
-                type: 'number',
-                min: 0,
-              }]}
-            >
-              <InputNumber 
-                min={0} 
-                precision={2} 
-                style={{ width: '100%' }} 
-                size="large" 
-                className="w-full text-base"
-                formatter={value => `Rs ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                parser={value => value.replace(/Rs\s?|(,*)/g, '')}
-              />
-            </Form.Item>
+          <Form.Item
+            name="S_BaseCharge"
+            label="Base Charge (Rs)"
+            rules={[{ required: true, message: "Please input base charge!" }]}
+          >
+            <InputNumber
+              min={0}
+              style={{ width: "100%" }}
+              formatter={(value) =>
+                `Rs ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+              }
+              parser={(value) => value.replace(/Rs\s?|(,*)/g, "")}
+            />
+          </Form.Item>
 
-            <Form.Item
-              name="status"
-              label={<span className="font-medium text-base">Status</span>}
-            >
-              <Radio.Group className="text-base">
-                <Radio value="Active">Active</Radio>
-                <Radio value="Inactive">Inactive</Radio>
-              </Radio.Group>
-            </Form.Item>
-          </div>
-
-          <Form.Item className="mt-6">
+          <Form.Item>
             <div className="flex justify-end space-x-3">
-              <Button 
-                onClick={() => setIsModalVisible(false)} 
-                size="large"
-                className="px-6 text-base"
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="primary" 
-                htmlType="submit" 
-                size="large"
-                className="bg-blue-600 hover:bg-blue-700 px-6 text-base"
-              >
-                {currentService ? 'Update Service' : 'Add Service'}
+              <Button onClick={() => setIsModalVisible(false)}>Cancel</Button>
+              <Button type="primary" htmlType="submit" loading={loading}>
+                {currentService ? "Update" : "Add"} Service
               </Button>
             </div>
           </Form.Item>
